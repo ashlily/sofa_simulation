@@ -6,20 +6,22 @@ import numpy as np
 
 class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
     count=0 
-       
+    '''   
     #communication
     HOST = ''                 # Symbolic name meaning the local host
     PORT = 50007              # Arbitrary non-privileged port
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn = 0;
     data = 0;
-    
+    '''
     #parameter initialization
     mesh_size = 0
     visual_size = 0
-    tp_index = [92,96,100,105,110]
-    fp_index = [109,104,101,94,93,89,88,115,111,106,99,97,91,90,98]
-    mp_index = [92,96,100,105,110]
+    tp_index = [94, 96, 100, 101, 104, 105, 109, 110, 114, 115]
+    fp_index = [121,116,106,97,90,85,
+                75,120,86,74,119,93,89,
+                118,95,66,75,77,137,69]
+    manipulation_flag = 0
 	
     def __init__(self, node, commandLineArguments) : 
         self.count = 0
@@ -114,13 +116,13 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
 	for i in range(0, size):
             i_temp = self.fp_index[i]-1
 	    self.createCube(self.LiverFEM, 'CubeMF' + str(i), 0, 0, 0, 'blue')
-        
+        '''
         #communication
 	self.s.bind((self.HOST, self.PORT))
 	self.s.listen(1)
 	self.conn, self.addr = self.s.accept()
 	print 'Connected by', self.addr
-       
+        '''
 	return 0
 
     def onMouseButtonLeft(self, mouseX,mouseY,isPressed):
@@ -141,8 +143,15 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
 
     def onKeyPressed(self, c):
         ## usage e.g.
-        #if c=="A" :
+        '''
+        print "c",c
+        if c=="m" :
+           print "You pressed m"
+           self.manipulation_flag = 1
+        if c=="s":
+           self.manipulation_flag = 0
         #    print "You pressed control+a"
+        '''
         return 0;
 
     def onMouseWheel(self, mouseX,mouseY,wheelDelta):
@@ -194,39 +203,26 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
 
     def onMouseButtonRight(self, mouseX,mouseY,isPressed):
         ## usage e.g.
-        #if isPressed : 
-        #    print "Control+Right mouse button pressed at position "+str(mouseX)+", "+str(mouseY)
+        if isPressed : 
+            print "Control+Right mouse button pressed at position "+str(mouseX)+", "+str(mouseY)
         return 0;
 
     def onBeginAnimationStep(self, deltaTime):
         ## Please feel free to add an example for a simple usage in /home/trs/sofa/build/unstable//home/trs/sofa/src/sofa/applications/plugins/SofaPython/scn2python.py
 	
         try:
-            
-            #communication
-            #receive
-            self.data = self.conn.recv(1248)
-            print "Client Says: "+self.data
-            cmd_f =[0 for i in range(15)]
-            if self.data == 'Hello, world':
-               cmd_f =[0 for i in range(15)]
-            else:
-               cmd_split = self.data.split(",")
-               cmd_f = np.float64(cmd_split)
-                  
-            print "cmd_f is:"
-            print cmd_f
-            cT = self.LiverFEM.getTime()
-            print 'cT = ', cT, deltaTime
-            print 'position', self.LiverFEM.getObject('dofs').position[100]
-            print 'position', self.LiverFEM.getObject('dofs').position[105]
-            print 'position', self.LiverFEM.getObject('dofs').position[110]
-            movements = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value
-            keyTimes = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value
-            #print 'movements', movements#, indices='100 105 110', keyTimes='0 5 10 15 20', template='Vec3d', movements='0 0 0 -1 1 1 0.2 -0.2 -0.2 -0.5 0.5 0.5 0 0 0')
-            #print 'keyTimes', keyTimes#
-            self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value = [[cT], [cT + 100]]
-            self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [0.5*math.sin(cT)+cmd_f[0], 0.5*math.cos(cT)+cmd_f[1], 0+10*cmd_f[2]]
+            self.manipulation_flag += 1
+            if self.manipulation_flag >= 100:
+               self.manipulation_flag = 100
+               cT = self.LiverFEM.getTime()
+               print 'cT = ', cT, deltaTime
+               print 'position', self.LiverFEM.getObject('dofs').position[100]
+               print 'position', self.LiverFEM.getObject('dofs').position[105]
+               print 'position', self.LiverFEM.getObject('dofs').position[110]
+               movements = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value
+               keyTimes = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value
+               self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value = [[cT], [cT + 100]]
+               self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [0.5*math.sin(cT), 0.5*math.cos(cT), 0]
             
 
             #position information
@@ -274,14 +270,14 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
             #print str_fp_tp_position_long
 
             str_fp_tp_position = str_fp_tp_position_long[1:-1]
-            #print "len str_fp_tp_position is:"
-            #print len(str_fp_tp_position)
+            print "len str_fp_tp_position is:"
+            print len(str_fp_tp_position)
             #print "str_fp_tp_position is:"
             #print str_fp_tp_position
-
+            '''
             #publish position information
             self.conn.sendall(str_fp_tp_position)
-
+            '''
             #split data
             data_split = str_fp_tp_position.split(",")
             #print "len data_split is:"
@@ -320,4 +316,17 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
             print "Error Occured."
         
         return 0
+
+
+def createScene(rootNode):
+    rootNode.findData('dt').value = '0.02'
+    rootNode.findData('gravity').value = '0 0 0'
+    try : 
+        sys.argv[0]
+    except :
+        commandLineArguments = []
+    else :
+        commandLineArguments = sys.argv
+    myTutorialForceFieldLiverFEM = TutorialForceFieldLiverFEM(rootNode,commandLineArguments)
+    return 0
 

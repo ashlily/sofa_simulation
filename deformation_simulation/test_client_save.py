@@ -37,8 +37,9 @@ try:
     rospy.init_node('sofa_agent', anonymous=True)
     loop_rate = rospy.Rate(50);
     sofa_pub = rospy.Publisher('feature_trajectory_position', Float64MultiArray, queue_size=100)
-    rospy.Subscriber('chatter', Float64MultiArray, ros_callback);
+    rospy.Subscriber('sofa_chatter', Float64MultiArray, ros_callback);
     s.send('Hello, world')
+    data_temp = s.recv(1248)
     #global tp_msg
 
     while not rospy.is_shutdown():
@@ -51,12 +52,18 @@ try:
         str_tp_msg = str_tp_msg_long[1:-1]
         print "str_tp_msg is:"
         print str_tp_msg
+        print len(str_tp_msg)
         
         #send data
+        if len(str_tp_msg) == 0:
+            str_tp_msg = "0.001, 0.000, 0.000"
+        print len(str_tp_msg)
+        print "wait for ros"
+        
         s.send(str_tp_msg)
 
 
-        data = s.recv(2048)
+        data = s.recv(1248)
         print "data is:"
         print data
         print "len data is:"
@@ -93,3 +100,4 @@ try:
     #print 'Received', repr(data)
 except rospy.ROSInterruptException:
    pass
+

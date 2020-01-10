@@ -2,21 +2,30 @@ import sys
 import Sofa
 import socket
 import math
+import numpy as np
 
 class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
-    count=0    
-    '''
+    count=0 
+       
+    #communication
     HOST = ''                 # Symbolic name meaning the local host
     PORT = 50007              # Arbitrary non-privileged port
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn = 0;
     data = 0;
-    '''
-    mesh_size = 0
+    c = "0";
+    
+    #parameter initialization
+    mesh_size = 181
     visual_size = 0
-    tp_index = [92,96,100,105,110]
-    fp_index = [109,104,101,94,93,89,88,115,111,106,99,97,91,90,98]
-    mp_index = [92,96,100,105,110]
+    #warning: node index in SOFA start from 0, however in the raw file "liver.msh", node index start from 1, SOFA convert the form to be starting from 0
+    #tp_index = [100]
+    tp_index = [85]
+    fp_index = [88, 92, 93, 94, 96, 97, 101, 104, 105, 110] #10p
+    #fp_index = [88, 91,92, 93, 94, 96, 97, 98,99,101, 104, 105, 110] #13p
+    manipulation_flag = 0
+    stable_flag = 0
+    desired_mesh = []
 	
     def __init__(self, node, commandLineArguments) : 
         self.count = 0
@@ -58,12 +67,16 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
         LiverFEM.gravity = gravity
         LiverFEM.createObject('MeshTopology', name='mesh', fileTopology='mesh/liver.msh')
         LiverFEM.createObject('MechanicalObject', name='dofs', template='Vec3d')
-        LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='50', name='FEM', poissonRatio='0.45', template='Vec3d')
+        #LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='500', name='FEM', poissonRatio='0.45', template='Vec3d')
+        LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='1000', name='FEM', poissonRatio='0.45', template='Vec3d')
+        ##change
+        #LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='30', name='FEM', poissonRatio='0.25', template='Vec3d')
         LiverFEM.createObject('UniformMass', name='mass', totalmass='1')
         LiverFEM.createObject('FixedConstraint', indices='3 39 64', name='FixedConstraint')
         #LiverFEM.createObject('PartialLinearMovementConstraint', indices='100 105 110', keyTimes='0 5 10 15 20', template='Vec3d', movements='0 0 0 -1 1 1 0.2 -0.2 -0.2 -0.5 0.5 0.5 0 0 0')
         #LiverFEM.createObject('PartialLinearMovementConstraint', indices='100 105 110', keyTimes='0 10', template='Vec3d', movements='0 0 0  0.1 -0.1 -0.1 -0.1 0.1 0.1')
-        LiverFEM.createObject('PartialLinearMovementConstraint', indices='100 105 110', keyTimes='0', template='Vec3d', movements='0 0 0')
+        #LiverFEM.createObject('PartialLinearMovementConstraint', indices='100', keyTimes='0', template='Vec3d', movements='0 0 0')
+        LiverFEM.createObject('PartialLinearMovementConstraint', indices='85', keyTimes='0', template='Vec3d', movements='0 0 0')
 
         # rootNode/LiverFEM/Visu
         Visu = LiverFEM.createChild('Visu')
@@ -106,18 +119,20 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
             i_temp = self.tp_index[i]-1
 	    self.createCube(self.LiverFEM, 'CubeMT' + str(i), 0, 0, 0, 'green')
 
+        '''
         # show cubes at the f points
 	size = len(self.fp_index)
 	for i in range(0, size):
             i_temp = self.fp_index[i]-1
 	    self.createCube(self.LiverFEM, 'CubeMF' + str(i), 0, 0, 0, 'blue')
-
         '''
+        
+        #communication
 	self.s.bind((self.HOST, self.PORT))
 	self.s.listen(1)
 	self.conn, self.addr = self.s.accept()
 	print 'Connected by', self.addr
-        '''
+       
 	return 0
 
     def onMouseButtonLeft(self, mouseX,mouseY,isPressed):
@@ -138,8 +153,8 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
 
     def onKeyPressed(self, c):
         ## usage e.g.
-        #if c=="A" :
-        #    print "You pressed control+a"
+        if c=="A" :
+            print "You pressed control+a"
         return 0;
 
     def onMouseWheel(self, mouseX,mouseY,wheelDelta):
@@ -199,73 +214,140 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
         ## Please feel free to add an example for a simple usage in /home/trs/sofa/build/unstable//home/trs/sofa/src/sofa/applications/plugins/SofaPython/scn2python.py
 	
         try:
-            '''
-            self.data = self.conn.recv(1024)
+            
+            #communication
+            #receive
+            self.data = self.conn.recv(2048)
             print "Client Says: "+self.data
-            position = self.Surf.getObject('mappedMS').position[10]
-            self.conn.sendall(str(self.Surf.getObject('mappedMS').position[10]))
-            '''
             
-            cT = self.LiverFEM.getTime()
-            print 'cT = ', cT, deltaTime
-            print 'position', self.LiverFEM.getObject('dofs').position[100]
-            print 'position', self.LiverFEM.getObject('dofs').position[105]
-            print 'position', self.LiverFEM.getObject('dofs').position[110]
-            movements = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value
-            keyTimes = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value
-            print 'movements', movements#, indices='100 105 110', keyTimes='0 5 10 15 20', template='Vec3d', movements='0 0 0 -1 1 1 0.2 -0.2 -0.2 -0.5 0.5 0.5 0 0 0')
-            print 'keyTimes', keyTimes#
-            self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value = [[cT], [cT + 100]]
-            self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [0.5*math.sin(cT), 0.5*math.cos(cT), 0]
-            
+              
 
-            '''
-            if cT > 5:
-                self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value = [[0], [cT], [cT + 1]]
-                self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [[0, 0, 0], [0.1, -0.1, -0.1]]
-            elif cT > 10:
-                self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value = [[0], [cT], [cT + 1]]
-                self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [[0, 0, 0], [-0.1, 0.1, 0.1]]
-            '''
-            size_mp = len(self.mp_index)
-	    for i in range(0, size_mp):
-                i_mp = self.mp_index[i]-1
+            cmd_f =[0 for i in range(15)]
+            if self.data == 'Hello, world':
+               cmd_f =[0 for i in range(3)]#need to change according to the manipulation_point number
+            else:
+               cmd_split = self.data.split(",")
+               cmd_f = np.float64(cmd_split)
+               #cmd_f =[0 for i in range(3)]
+
+
+
+            self.manipulation_flag += 1
+            if self.manipulation_flag >= 5:
+               self.manipulation_flag = 5
+               cT = self.LiverFEM.getTime()
+               movements = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value
+               keyTimes = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value
+               self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value = [[cT], [cT + 100]] #the movement start at cT (cT+100 no effect)
+               #the movement cmd is the displacement with respect to the rest shape
+               self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [-1, -1, -0.8]
+               #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [1*math.sin(cT), 1*math.cos(cT), 0.8*math.cos(cT)]
+               #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [cmd_f[0], cmd_f[1], cmd_f[2]]
+               
+               
+            #record position information of all mesh nodes when stable
+            if self.manipulation_flag >= 5:
+                 self.stable_flag += 1
+                 if self.stable_flag == 200:
+                      print "record desired mesh:"
+                      print "\n"
+                      file = open("/home/ashily/sofa/v17.06/src/applications/plugins/SofaPython/examples/deformation_simulation/revise/desired_shapes.txt","w")
+                      for i in range(0,self.mesh_size):
+                          x = np.float64(self.LiverFEM.getObject('dofs').position[i][0])
+	                  y = np.float64(self.LiverFEM.getObject('dofs').position[i][1])
+	                  z = np.float64(self.LiverFEM.getObject('dofs').position[i][2])
+                          file.write(str(x)+"\n"+str(y)+"\n"+str(z)+"\n")
+                      file.close() 
+           
+           
+
+            #position information
+            tp_position = []
+            fp_position = []
+            fp_tp_position = []
 
             #update scene information
 	    size_fp = len(self.fp_index)
 	    for i in range(0, size_fp):
-                i_fp = self.fp_index[i]-1
-                x = self.LiverFEM.getObject('dofs').position[i_fp][0]
-	        y = self.LiverFEM.getObject('dofs').position[i_fp][1]
-	        z = self.LiverFEM.getObject('dofs').position[i_fp][2]
-                self.LiverFEM.getObject('CubeMF' + str(i)).findData('position').value = str(x)+' '+str(y)+' '+str(z)+' 0 0 0 1'
+                i_fp = self.fp_index[i]
+                x = np.float64(self.LiverFEM.getObject('dofs').position[i_fp][0])
+	        y = np.float64(self.LiverFEM.getObject('dofs').position[i_fp][1])
+	        z = np.float64(self.LiverFEM.getObject('dofs').position[i_fp][2])
+	        fp_position.append([x,y,z])
+                fp_tp_position.append(x)
+                fp_tp_position.append(y)
+                fp_tp_position.append(z)
+                #self.LiverFEM.getObject('CubeMF' + str(i)).findData('position').value = str(x)+' '+str(y)+' '+str(z)+' 0 0 0 1'
 
             size_tp = len(self.tp_index)
 	    for i in range(0, size_tp):
-                i_tp = self.tp_index[i]-1
-                x = self.LiverFEM.getObject('dofs').position[i_tp][0]
-	        y = self.LiverFEM.getObject('dofs').position[i_tp][1]
-	        z = self.LiverFEM.getObject('dofs').position[i_tp][2]
+                i_tp = self.tp_index[i]
+                x = np.float64(self.LiverFEM.getObject('dofs').position[i_tp][0])
+	        y = np.float64(self.LiverFEM.getObject('dofs').position[i_tp][1])
+	        z = np.float64(self.LiverFEM.getObject('dofs').position[i_tp][2])
+	        tp_position.append([x,y,z])
+                fp_tp_position.append(x)
+                fp_tp_position.append(y)
+                fp_tp_position.append(z)
                 self.LiverFEM.getObject('CubeMT' + str(i)).findData('position').value = str(x)+' '+str(y)+' '+str(z)+' 0 0 0 1'
 
-	    '''
-	    if self.visual_size == 0:
-	        self.visual_size = len(self.Visu.getObject('VisualModel').position)
-	        for i in range(0, self.visual_size):
-		    x = self.Visu.getObject('VisualModel').position[i][0]
-		    y = self.Visu.getObject('VisualModel').position[i][1]
-		    z = self.Visu.getObject('VisualModel').position[i][2]
-		    self.createCube(self.Visu, 'CubeVM' + str(i), x, y, z, 'blue')
-                #print 'visual_size = ' + str(self.visual_size)
-	    else:
-		#print 'visual_size = ' + str(len(self.LiverFEM.getObject('mesh').position))
-	        for i in range(0, 50):
-                    x = self.Visu.getObject('VisualModel').position[i][0]
-	            y = self.Visu.getObject('VisualModel').position[i][1]
-	            z = self.Visu.getObject('VisualModel').position[i][2]
-                    #if self.LiverFEM.getObject('CubeME' + str(i)) != None: 
-	            self.Visu.getObject('CubeVM' + str(i)).findData('position').value = str(x)+' '+str(y)+' '+str(z)+' 0 0 0 1'
-	    '''
+            #print "len tp is:"
+            #print len(tp_position)
+            #print "tp is:"
+            #print tp_position
+
+            #print "len fp_tp_position is:"
+            #print len(fp_tp_position)
+            #print "fp_tp_position is:"
+            #print fp_tp_position
+
+            str_fp_tp_position_long = str(fp_tp_position)
+            #print "str_fp_tp_position_long is:"
+            #print str_fp_tp_position_long
+
+            str_fp_tp_position = str_fp_tp_position_long[1:-1]
+            #print "len str_fp_tp_position is:"
+            #print len(str_fp_tp_position)
+            #print "str_fp_tp_position is:"
+            #print str_fp_tp_position
+
+            #publish position information
+            self.conn.sendall(str_fp_tp_position)
+
+            #split data
+            data_split = str_fp_tp_position.split(",")
+            #print "len data_split is:"
+            #print len(data_split)
+
+            #convert the split data to float64
+            data_f =[]
+            N_data = len(data_split)
+            for i in range(0,N_data):
+                 data_f.append(np.float64(data_split[i]))
+            #print "len data_f is:"
+            #print len(data_f)
+            #print "data_f is:"
+            #print data_f
+
+            #test direct convert
+            data_f_d = np.float64(data_split)
+            #print "len data_f_d is:"
+            #print len(data_f_d)
+            #print "data_f_d is:"
+            #print data_f_d
+            '''
+            #publish position information
+            #convert the float list to string list
+            str_fp_tp_position_long = str(fp_tp_position)
+            #str_fp_tp_position = [format(flt) for flt in fp_tp_position] 
+            #print  str_fp_tp_position_long
+            str_fp_tp_position = str_fp_tp_position_long[1:-1]
+            #print str_fp_tp_position 
+            '''
+
+            
+
+	   
         except socket.error:
             print "Error Occured."
         
@@ -282,5 +364,5 @@ def createScene(rootNode):
     else :
         commandLineArguments = sys.argv
     myTutorialForceFieldLiverFEM = TutorialForceFieldLiverFEM(rootNode,commandLineArguments)
-    
     return 0
+
