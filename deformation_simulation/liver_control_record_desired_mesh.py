@@ -240,7 +240,7 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
                keyTimes = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value
                self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value = [[cT], [cT + 100]] #the movement start at cT (cT+100 no effect)
                #the movement cmd is the displacement with respect to the rest shape
-               self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [-1, -1, -0.8]
+               self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [1, 1, 0.8]
                #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [1*math.sin(cT), 1*math.cos(cT), 0.8*math.cos(cT)]
                #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [cmd_f[0], cmd_f[1], cmd_f[2]]
                
@@ -251,7 +251,7 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
                  if self.stable_flag == 200:
                       print "record desired mesh:"
                       print "\n"
-                      file = open("/home/ashily/sofa/v17.06/src/applications/plugins/SofaPython/examples/deformation_simulation/revise/desired_shapes.txt","w")
+                      file = open("/home/ashily/sofa_codes/shape_simulation/deformation_simulation/desired_shapes.txt","w")
                       for i in range(0,self.mesh_size):
                           x = np.float64(self.LiverFEM.getObject('dofs').position[i][0])
 	                  y = np.float64(self.LiverFEM.getObject('dofs').position[i][1])

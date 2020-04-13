@@ -195,7 +195,7 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
         #read the desired shapes 
         if self.read_flag == 0: 
             self.read_flag = 1    
-            file = open("/home/ashily/sofa/v17.06/src/applications/plugins/SofaPython/examples/deformation_simulation/revise/desired_shapes.txt","r")
+            file = open("/home/ashily/sofa_codes/shape_simulation/deformation_simulation/desired_shapes.txt","r")
             for i in range(0,self.mesh_size):
                 x = np.float64(file.readline())
 	        y = np.float64(file.readline())
@@ -242,9 +242,9 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
                keyTimes = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value
                self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value = [[cT], [cT + 100]] #the movement start at cT (cT+100 no effect)
                #the movement cmd is the displacement with respect to the rest shape
-               #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [-1, -1, -0.8]
+               self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [1, 1, 0.8]
                #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [1*math.sin(cT), 1*math.cos(cT), 0.8*math.cos(cT)]
-               self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [cmd_f[0], cmd_f[1], cmd_f[2]]
+               #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [cmd_f[0], cmd_f[1], cmd_f[2]]
            
 
             #compute and record mesh error
@@ -265,7 +265,7 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
                 mesh_error.append(ez)
                 error_sum += (ex*ex + ey*ey + ez*ez)
             #record mesh_error
-            file = open("/home/ashily/sofa/v17.06/src/applications/plugins/SofaPython/examples/deformation_simulation/revise/data_record/mesh_error.txt","a")
+            file = open("/home/ashily/sofa_codes/shape_simulation/deformation_simulation/data_record/mesh_error.txt","a")
             for i in range(0,self.mesh_size):
                 ex = mesh_error[3*i]
 	        ey = mesh_error[3*i+1]
@@ -273,7 +273,7 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
                 file.write(str(ex)+"   ,"+str(ey)+"   ,"+str(ez)+"\n")
             file.write("\n")
             file.close() 
-            file = open("/home/ashily/sofa/v17.06/src/applications/plugins/SofaPython/examples/deformation_simulation/revise/data_record/error_sum.txt","a")
+            file = open("/home/ashily/sofa_codes/shape_simulation/deformation_simulation/data_record/error_sum.txt","a")
             file.write(str(error_sum)+"\n")
             file.close()
             #position information

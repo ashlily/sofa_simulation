@@ -13,17 +13,27 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn = 0;
     data = 0;
+    c = "0";
     
     #parameter initialization
-    mesh_size = 0
+    mesh_size = 181
     visual_size = 0
+    surface_node_size = 139
+
     #warning: node index in SOFA start from 0, however in the raw file "liver.msh", node index start from 1, SOFA convert the form to be starting from 0
     #tp_index = [100]
     tp_index = [85]
-    fp_index = [88, 92, 93, 94, 96, 97, 101, 104, 105, 110] #10p 
+    fp_index = [88, 92, 93, 94, 96, 97, 101, 104, 105, 110] #10p
     #fp_index = [88, 91,92, 93, 94, 96, 97, 98,99,101, 104, 105, 110] #13p
-    #fp_index = [88,91,96,97,98,99,101,104,105,110] #10p2
-    manipulation_flag = 0
+    manipulation_flag = 1
+    read_flag_offline = 0
+    read_flag_online = 0
+    surface_node_index = []
+    surface_node_displacements = np.zeros((surface_node_size,3))   
+    rest_surface_nodes = np.zeros((surface_node_size,3))
+    mesh_node_displacements = np.zeros((mesh_size,3))
+    mesh_node_positions = np.zeros((mesh_size,3))
+    rest_mesh_nodes = np.zeros((mesh_size,3))
 	
     def __init__(self, node, commandLineArguments) : 
         self.count = 0
@@ -65,8 +75,8 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
         LiverFEM.gravity = gravity
         LiverFEM.createObject('MeshTopology', name='mesh', fileTopology='mesh/liver.msh')
         LiverFEM.createObject('MechanicalObject', name='dofs', template='Vec3d')
-        LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='500', name='FEM', poissonRatio='0.45', template='Vec3d')
-        #LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='800', name='FEM', poissonRatio='0.45', template='Vec3d')
+        #LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='500', name='FEM', poissonRatio='0.45', template='Vec3d')
+        LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='1000', name='FEM', poissonRatio='0.45', template='Vec3d')
         ##change
         #LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='30', name='FEM', poissonRatio='0.25', template='Vec3d')
         LiverFEM.createObject('UniformMass', name='mass', totalmass='1')
@@ -91,25 +101,6 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
         Surf.createObject('MechanicalObject', position='@[-1].position', name='mappedMS')
         Surf.createObject('SphereModel', listRadius='@[-2].listRadius', name='CollisionModel')
         Surf.createObject('BarycentricMapping', input='@../dofs', name='sphere mapping', output='@mappedMS')
-	'''
-        # Spring1
-        Spring1 = rootNode.createChild('Spring1')
-        self.Spring1 = Spring1
-        Spring1.gravity = '0 0 0'
-        Spring1.createObject('MechanicalObject', position='-4 4.5 2', name='Particles', template='Vec3d', restScale='0.1')
-        Spring1.createObject('UniformMass', name='Mass', template='Vec3d')
-        Spring1.createObject('FixedConstraint', indices='0', name='FixedConstraint', template='Vec3d')
-        rootNode.createObject('StiffSpringForceField', object1='@LiverFEM', object2='@Spring1', name='Interaction Spring', template='Vec3d', spring='110 0 1000000 0.1 0')
-        
-        # Spring2
-        Spring2 = rootNode.createChild('Spring2')
-        self.Spring2 = Spring2
-        Spring2.gravity = '0 0 0'
-        Spring2.createObject('MechanicalObject', position='-2 4.5 2', name='Particles', template='Vec3d', restScale='0.1')
-        Spring2.createObject('UniformMass', name='Mass', template='Vec3d')
-        Spring2.createObject('FixedConstraint', indices='0', name='FixedConstraint', template='Vec3d')
-        rootNode.createObject('StiffSpringForceField', object1='@LiverFEM', object2='@Spring2', name='Interaction Spring', template='Vec3d', spring='92 0 1000000 0.1 0')
-        '''
 
         # show cubes at the t points
 	size = len(self.tp_index)
@@ -151,9 +142,6 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
         ## usage e.g.
         if c=="A" :
             print "You pressed control+a"
-            file = open("/home/ashily/sofa/v17.06/src/applications/plugins/SofaPython/examples/deformation_simulation/revise/test_key.txt","a")
-            file.write("You pressed control+a"+"\n")
-            file.close()
         return 0;
 
     def onMouseWheel(self, mouseX,mouseY,wheelDelta):
@@ -211,13 +199,54 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
 
     def onBeginAnimationStep(self, deltaTime):
         ## Please feel free to add an example for a simple usage in /home/trs/sofa/build/unstable//home/trs/sofa/src/sofa/applications/plugins/SofaPython/scn2python.py
+
+        #read the surface node information 
+        if self.read_flag_offline == 0: 
+            #read surface node index
+            self.read_flag_offline = 1    
+            file = open("/home/ashily/sofa_codes/shape_simulation/deformation_simulation/surface_test/surface_nodes_index.txt","r")
+            for i in range(0,self.surface_node_size):
+                x = np.int32(file.readline())
+                self.surface_node_index.append(x)
+            file.close() 
+            print "read the surface_node_index \n"
+            print "surface_node_index[0] is:"
+            print self.surface_node_index[0]
+            print "\n"
+            #get rest positions of surface node
+            for i in range(0,self.surface_node_size):
+                i_sp = self.surface_node_index[i]
+                rx = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][0])
+	        ry = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][1])
+	        rz = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][2])
+                self.rest_surface_nodes[i][0] = rx
+                self.rest_surface_nodes[i][1] = ry
+                self.rest_surface_nodes[i][2] = rz
+            #get rest positions of all mesh node
+            for i in range(0,self.mesh_size):
+                i_sp = i
+                rx = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][0])
+	        ry = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][1])
+	        rz = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][2])
+                self.rest_mesh_nodes[i][0] = rx
+                self.rest_mesh_nodes[i][1] = ry
+                self.rest_mesh_nodes[i][2] = rz
+        print "size of read surface_node_index is:"
+        print len(self.surface_node_index)
+        print "\n"
+        print "rest_surface_nodes[138][0] is:"
+        print self.rest_surface_nodes[self.surface_node_size-1][0]
+        print "\n"
+        
 	
         try:
             
             #communication
             #receive
             self.data = self.conn.recv(2048)
-            print "Client Says: "+self.data
+            #print "Client Says: "+self.data
+              
+
             cmd_f =[0 for i in range(15)]
             if self.data == 'Hello, world':
                cmd_f =[0 for i in range(3)]#need to change according to the manipulation_point number
@@ -227,14 +256,11 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
                #print cmd_split
                cmd_f = np.float64(cmd_split)
                #cmd_f =[0 for i in range(3)]
-                  
-            #print "cmd_f is:"
-            #print cmd_f
 
 
-            self.manipulation_flag += 1
-            if self.manipulation_flag >= 10:
-               self.manipulation_flag = 10
+            #self.manipulation_flag += 1
+            if self.manipulation_flag == 1:
+               #self.manipulation_flag = 10
                cT = self.LiverFEM.getTime()
                #print 'cT = ', cT, "deltaTime = ", deltaTime
                #print 'position', self.LiverFEM.getObject('dofs').position[100]
@@ -242,14 +268,62 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
                keyTimes = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value
                self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value = [[cT], [cT + 100]] #the movement start at cT (cT+100 no effect)
                #the movement cmd is the displacement with respect to the rest shape
-               #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [-1, -1, -0.8]
-               #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [0.5*math.sin(cT), 0.5*math.cos(cT), 0*math.cos(cT)]
+               self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [-1, -1, -0.8]
                #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [1*math.sin(cT), 1*math.cos(cT), 0.8*math.cos(cT)]
-               self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [cmd_f[0], cmd_f[1], cmd_f[2]]
-               
-               
-            
-
+               #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [cmd_f[0], cmd_f[1], cmd_f[2]]
+ 
+            #wait for deformation
+            self.read_flag_online += 1
+            if self.read_flag_online == 50:
+                #compute and record surface_node_displacments
+                for i in range(0,self.surface_node_size):
+                    i_sp = self.surface_node_index[i]
+                    mx = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][0])
+	            my = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][1])
+	            mz = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][2])
+                    self.surface_node_displacements[i][0] = mx - self.rest_surface_nodes[i][0]
+                    self.surface_node_displacements[i][1] = my - self.rest_surface_nodes[i][1]
+                    self.surface_node_displacements[i][2] = mz - self.rest_surface_nodes[i][2] 
+                #record surface_node_displacements
+                file = open("/home/ashily/sofa_codes/shape_simulation/deformation_simulation/data_record/surface_node_displacements.txt","a")
+                for i in range(0,self.surface_node_size):
+                    dx = self.surface_node_displacements[i][0]
+	            dy = self.surface_node_displacements[i][1]
+	            dz = self.surface_node_displacements[i][2]
+                    file.write(str(dx)+"   ,"+str(dy)+"   ,"+str(dz)+"\n")
+                file.write("\n")
+                file.close() 
+                #compute and record mesh_node_displacments
+                for i in range(0,self.mesh_size):
+                    i_sp = i
+                    mx = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][0])
+	            my = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][1])
+	            mz = np.float64(self.LiverFEM.getObject('dofs').position[i_sp][2])
+                    self.mesh_node_positions[i][0] = mx
+                    self.mesh_node_positions[i][1] = my
+                    self.mesh_node_positions[i][2] = mz
+                    self.mesh_node_displacements[i][0] = mx - self.rest_mesh_nodes[i][0]
+                    self.mesh_node_displacements[i][1] = my - self.rest_mesh_nodes[i][1]
+                    self.mesh_node_displacements[i][2] = mz - self.rest_mesh_nodes[i][2] 
+                #record surface_node_positions
+                file = open("/home/ashily/sofa_codes/shape_simulation/deformation_simulation/data_record/mesh_node_positions.txt","a")
+                for i in range(0,self.mesh_size):
+                    dx = self.mesh_node_positions[i][0]
+	            dy = self.mesh_node_positions[i][1]
+	            dz = self.mesh_node_positions[i][2]
+                    file.write(str(dx)+"   ,"+str(dy)+"   ,"+str(dz)+"\n")
+                file.write("\n")
+                file.close() 
+                #record surface_node_displacements
+                file = open("/home/ashily/sofa_codes/shape_simulation/deformation_simulation/data_record/mesh_node_displacements.txt","a")
+                for i in range(0,self.mesh_size):
+                    dx = self.mesh_node_displacements[i][0]
+	            dy = self.mesh_node_displacements[i][1]
+	            dz = self.mesh_node_displacements[i][2]
+                    file.write(str(dx)+"   ,"+str(dy)+"   ,"+str(dz)+"\n")
+                file.write("\n")
+                file.close() 
+           
             #position information
             tp_position = []
             fp_position = []
@@ -280,59 +354,25 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
                 fp_tp_position.append(z)
                 self.LiverFEM.getObject('CubeMT' + str(i)).findData('position').value = str(x)+' '+str(y)+' '+str(z)+' 0 0 0 1'
 
-            #print "len tp is:"
-            #print len(tp_position)
-            #print "tp is:"
-            #print tp_position
-
-            #print "len fp_tp_position is:"
-            #print len(fp_tp_position)
-            #print "fp_tp_position is:"
-            #print fp_tp_position
 
             str_fp_tp_position_long = str(fp_tp_position)
-            #print "str_fp_tp_position_long is:"
-            #print str_fp_tp_position_long
 
             str_fp_tp_position = str_fp_tp_position_long[1:-1]
-            #print "len str_fp_tp_position is:"
-            #print len(str_fp_tp_position)
-            #print "str_fp_tp_position is:"
-            #print str_fp_tp_position
 
             #publish position information
             self.conn.sendall(str_fp_tp_position)
 
             #split data
             data_split = str_fp_tp_position.split(",")
-            #print "len data_split is:"
-            #print len(data_split)
 
             #convert the split data to float64
             data_f =[]
             N_data = len(data_split)
             for i in range(0,N_data):
                  data_f.append(np.float64(data_split[i]))
-            #print "len data_f is:"
-            #print len(data_f)
-            #print "data_f is:"
-            #print data_f
 
             #test direct convert
             data_f_d = np.float64(data_split)
-            #print "len data_f_d is:"
-            #print len(data_f_d)
-            #print "data_f_d is:"
-            #print data_f_d
-            '''
-            #publish position information
-            #convert the float list to string list
-            str_fp_tp_position_long = str(fp_tp_position)
-            #str_fp_tp_position = [format(flt) for flt in fp_tp_position] 
-            #print  str_fp_tp_position_long
-            str_fp_tp_position = str_fp_tp_position_long[1:-1]
-            #print str_fp_tp_position 
-            '''
 
             
 

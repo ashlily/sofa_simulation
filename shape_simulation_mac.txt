@@ -1,0 +1,78 @@
+1.run shape control:
+cd ~/ros_ws
+source devel/setup.bash
+catkin_make -DCATKIN_WHITELIST_PACKAGES="shape_control"
+rosrun shape_control shape_control_node
+
+2.run sofa:
+cd sofa/build/bin/
+./runSofa '/home/ashily/sofa_codes/shape_simulation/deformation_simulation/liver_control.py'
+
+3.run client:
+python '/home/ashily/sofa_codes/shape_simulation/deformation_simulation/test_client_save.py'
+
+4.record data:
+cd ~/ros_ws
+source devel/setup.bash
+rosbag record -a
+rqt_bag
+
+###record mesh error during shape control
+0. make sure that fp and mp index are the same
+1. record desired shape information
+a. run shape control:
+cd ~/ros_ws
+source devel/setup.bash
+catkin_make -DCATKIN_WHITELIST_PACKAGES="shape_control"
+rosrun shape_control shape_control_node
+
+b.run sofa:
+cd sofa/build/bin/
+./runSofa '/home/ashily/sofa_codes/shape_simulation/deformation_simulation/liver_control_record_desired_mesh.py'
+
+c.run client:
+python '/home/ashily/sofa_codes/shape_simulation/deformation_simulation/test_client_save.py'
+
+>>>>>after that, the desired shape data is record in:
+"/home/ashily/sofa_codes/shape_simulation/deformation_simulation/desired_shapes.txt"
+>>>>and the desired feature is record in:
+"/home/ashily/ros_ws/src/shape_control/data/current_features.txt"
+
+d. update the desired feature:
+"/home/ashily/ros_ws/src/shape_control/src/desired_feature.txt"
+
+
+2. shape contro while recording mesh error
+a. run shape control:
+cd ~/ros_ws
+source devel/setup.bash
+catkin_make -DCATKIN_WHITELIST_PACKAGES="shape_control"
+rosrun shape_control shape_control_node
+
+b.run sofa:
+cd sofa/v17.06/build/bin/
+./runSofa '/home/ashily/sofa_codes/shape_simulation/deformation_simulation/liver_control_mesh_error.py'
+
+c.run client:
+python '/home/ashily/sofa_codes/shape_simulation/deformation_simulation/test_client_save.py'
+
+>>>>>after that, the mesh error data is record in: (need to be delete the old txt first"
+"/home/ashily/sofa_codes/shape_simulation/deformation_simulation/data_record/mesh_error.txt"
+"/home/ashily/sofa_codes/shape_simulation/deformation_simulation/data_record/error_sum.txt"
+
+
+\\\\\\0331 2020
+run 3 py files:
+1. liver_control_record_disired_mesh.py:
+to record and save desired node positions
+
+2. liver_control_read_index.py:
+read fp index, for controller to compute desired features
+
+3. liver_control_read_index_record.py:
+for control cmd, and record mesh errors
+
+note that: the deformation of 1 and 2 must be same
+
+[IMPORTANT] when record data, first close sofa, then stop controller
+

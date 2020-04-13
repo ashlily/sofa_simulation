@@ -13,14 +13,54 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn = 0;
     data = 0;
-    
+    #to compute tarray
+    tcount = 0;
+
     #parameter initialization
-    mesh_size = 0
     visual_size = 0
+    mesh_size = 181
+    #for record mesh error
+    desired_mesh = []
+    #read the desired shapes 
+    file = open("/home/ashily/sofa_codes/shape_simulation/deformation_simulation/desired_shapes.txt","r")
+    for i in range(0,mesh_size):
+        x = np.float64(file.readline())
+	y = np.float64(file.readline())
+	z = np.float64(file.readline())
+        desired_mesh.append(x)
+        desired_mesh.append(y)
+        desired_mesh.append(z)
+    file.close() 
+    print "read the desired_mesh \n"
+    print "desired_mesh[0] is:"
+    print desired_mesh[0]
+    print "\n"
+    print "size of read desired_mesh is:"
+    print len(desired_mesh)
+    print "\n"
+    
+    
+    #read index from files
+    fp_size = 15
+    fp_index = []
+    #read fp index
+    file = open("/home/ashily/catkin_ws/src/shape_control/src/surface_test/15nodes/s1.txt","r")
+    for i in range(0,fp_size):
+            x = np.long(file.readline())
+            fp_index.append(x)
+    file.close() 
+    print "read the feature_node_index \n"
+    print "fp_index[0] is:"
+    print fp_index[0]
+    print "\n"
+    print "size of read feature_node_index is:"
+    print len(fp_index)
+    print "\n"
+
     #warning: node index in SOFA start from 0, however in the raw file "liver.msh", node index start from 1, SOFA convert the form to be starting from 0
     #tp_index = [100]
     tp_index = [85]
-    fp_index = [88, 92, 93, 94, 96, 97, 101, 104, 105, 110] #10p 
+    #fp_index = [88, 92, 93, 94, 96, 97, 101, 104, 105, 110] #10p 
     #fp_index = [88, 91,92, 93, 94, 96, 97, 98,99,101, 104, 105, 110] #13p
     #fp_index = [88,91,96,97,98,99,101,104,105,110] #10p2
     manipulation_flag = 0
@@ -65,8 +105,8 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
         LiverFEM.gravity = gravity
         LiverFEM.createObject('MeshTopology', name='mesh', fileTopology='mesh/liver.msh')
         LiverFEM.createObject('MechanicalObject', name='dofs', template='Vec3d')
-        LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='500', name='FEM', poissonRatio='0.45', template='Vec3d')
-        #LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='800', name='FEM', poissonRatio='0.45', template='Vec3d')
+        #LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='500', name='FEM', poissonRatio='0.45', template='Vec3d')
+        LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='250', name='FEM', poissonRatio='0.45', template='Vec3d')
         ##change
         #LiverFEM.createObject('TetrahedronFEMForceField', youngModulus='30', name='FEM', poissonRatio='0.25', template='Vec3d')
         LiverFEM.createObject('UniformMass', name='mass', totalmass='1')
@@ -91,25 +131,6 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
         Surf.createObject('MechanicalObject', position='@[-1].position', name='mappedMS')
         Surf.createObject('SphereModel', listRadius='@[-2].listRadius', name='CollisionModel')
         Surf.createObject('BarycentricMapping', input='@../dofs', name='sphere mapping', output='@mappedMS')
-	'''
-        # Spring1
-        Spring1 = rootNode.createChild('Spring1')
-        self.Spring1 = Spring1
-        Spring1.gravity = '0 0 0'
-        Spring1.createObject('MechanicalObject', position='-4 4.5 2', name='Particles', template='Vec3d', restScale='0.1')
-        Spring1.createObject('UniformMass', name='Mass', template='Vec3d')
-        Spring1.createObject('FixedConstraint', indices='0', name='FixedConstraint', template='Vec3d')
-        rootNode.createObject('StiffSpringForceField', object1='@LiverFEM', object2='@Spring1', name='Interaction Spring', template='Vec3d', spring='110 0 1000000 0.1 0')
-        
-        # Spring2
-        Spring2 = rootNode.createChild('Spring2')
-        self.Spring2 = Spring2
-        Spring2.gravity = '0 0 0'
-        Spring2.createObject('MechanicalObject', position='-2 4.5 2', name='Particles', template='Vec3d', restScale='0.1')
-        Spring2.createObject('UniformMass', name='Mass', template='Vec3d')
-        Spring2.createObject('FixedConstraint', indices='0', name='FixedConstraint', template='Vec3d')
-        rootNode.createObject('StiffSpringForceField', object1='@LiverFEM', object2='@Spring2', name='Interaction Spring', template='Vec3d', spring='92 0 1000000 0.1 0')
-        '''
 
         # show cubes at the t points
 	size = len(self.tp_index)
@@ -216,9 +237,9 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
             
             #communication
             #receive
-            self.data = self.conn.recv(2048)
+            self.data = self.conn.recv(16000)
             print "Client Says: "+self.data
-            cmd_f =[0 for i in range(15)]
+            cmd_f =[0 for i in range(3)]
             if self.data == 'Hello, world':
                cmd_f =[0 for i in range(3)]#need to change according to the manipulation_point number
             else:
@@ -242,11 +263,42 @@ class TutorialForceFieldLiverFEM (Sofa.PythonScriptController):
                keyTimes = self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value
                self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('keyTimes').value = [[cT], [cT + 100]] #the movement start at cT (cT+100 no effect)
                #the movement cmd is the displacement with respect to the rest shape
-               #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [-1, -1, -0.8]
+               #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [1, 1, 0.8]
                #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [0.5*math.sin(cT), 0.5*math.cos(cT), 0*math.cos(cT)]
-               #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [1*math.sin(cT), 1*math.cos(cT), 0.8*math.cos(cT)]
+               #self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [1*math.sin(0.5*cT), 1*math.cos(0.5*cT), 0.8*math.cos(0.5*cT)]
                self.LiverFEM.getObject('PartialLinearMovementConstraint').findData('movements').value = [cmd_f[0], cmd_f[1], cmd_f[2]]
-               
+            
+            #compute and record mesh error
+            error_sum = 0
+            mesh_error = []
+            for i in range(0,self.mesh_size):
+                dx = np.float64(self.desired_mesh[3*i])
+                dy = np.float64(self.desired_mesh[3*i+1])
+                dz = np.float64(self.desired_mesh[3*i+2])
+                mx = np.float64(self.LiverFEM.getObject('dofs').position[i][0])
+	        my = np.float64(self.LiverFEM.getObject('dofs').position[i][1])
+	        mz = np.float64(self.LiverFEM.getObject('dofs').position[i][2])
+                ex = mx - dx
+                ey = my - dy
+                ez = mz - dz
+                mesh_error.append(ex)
+                mesh_error.append(ey)
+                mesh_error.append(ez)
+                error_sum += (ex*ex + ey*ey + ez*ez)
+            #record mesh_error
+            '''
+            file = open("/home/ashily/sofa_codes/shape_simulation/deformation_simulation/data_record/mesh_error.txt","a")
+            for i in range(0,self.mesh_size):
+                ex = mesh_error[3*i]
+	        ey = mesh_error[3*i+1]
+	        ez = mesh_error[3*i+2]
+                file.write(str(ex)+"   ,"+str(ey)+"   ,"+str(ez)+"\n")
+            file.write("\n")
+            file.close() 
+            '''
+            file = open("/home/ashily/sofa_codes/shape_simulation/deformation_simulation/data_record/error_sum.txt","a")
+            file.write(str(error_sum)+"\n")
+            file.close()   
                
             
 

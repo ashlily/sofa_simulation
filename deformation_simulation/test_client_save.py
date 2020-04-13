@@ -39,7 +39,7 @@ try:
     sofa_pub = rospy.Publisher('feature_trajectory_position', Float64MultiArray, queue_size=100)
     rospy.Subscriber('sofa_chatter', Float64MultiArray, ros_callback);
     s.send('Hello, world')
-    data_temp = s.recv(1248)
+    data_temp = s.recv(16000)
     #global tp_msg
 
     while not rospy.is_shutdown():
@@ -63,32 +63,32 @@ try:
         s.send(str_tp_msg)
 
 
-        data = s.recv(1248)
-        print "data is:"
-        print data
-        print "len data is:"
-        print len(data)
+        data = s.recv(16000)
+        #print "data is:"
+        #print data
+        #print "len data is:"
+        #print len(data)
  
         #split data
         if len(data) > 0:
             data_split = data.split(",")
-            print "len data_split is:"
-            print len(data_split)
-            print "data_split is:"
-            print data_split
+            #print "len data_split is:"
+            #print len(data_split)
+            #print "data_split is:"
+            #print data_split
             #conver date to float64
             data_f = np.float64(data_split)
-            print "len data_f is:"
-            print len(data_f)
-            print "data_f is:"
-            print data_f
+            #print "len data_f is:"
+            #print len(data_f)
+            #print "data_f is:"
+            #print data_f
             #conver list to array
             data_msg = Float64MultiArray()
             data_msg.data = np.array(data_f)
-            print "len data_f is:"
-            print len(data_msg.data)
             print "data_msg is:"
             print data_msg
+            print "len data_f is:"
+            print len(data_msg.data)
             #publish to ros topic
             sofa_pub.publish(data_msg)
         
